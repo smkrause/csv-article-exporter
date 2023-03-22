@@ -2,7 +2,7 @@
 /*
 Plugin Name: CSV Article Exporter
 Description: Exports articles to CSV format.
-Version: 1.0
+Version: 1.1
 Author: Steve Krause
 */
 
@@ -19,9 +19,12 @@ function csv_admin_page() {
         wp_die(__('You do not have sufficient permissions to access this page.'));
     }
 
-    // Handle form submission.
+    // Declare and initialize $article_not_found
+    $article_not_found = false;
+
+    // Handle form submission and update $article_not_found.
     if (isset($_POST['csv_export']) && check_admin_referer('csv_export_action')) {
-        csv_export_articles();
+        $article_not_found = csv_export_articles();
     }
 
     // Display the admin page content.
@@ -39,6 +42,9 @@ function csv_admin_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ($article_not_found) : ?>
+                <div style="color: red; margin-bottom: 10px;">Error: The specified article ID was not found.</div>
+            <?php endif; ?>
             <?php submit_button('Export Articles', 'primary', 'csv_export'); ?>
         </form>
     </div>
@@ -47,10 +53,6 @@ function csv_admin_page() {
 
 function csv_export_articles() {
     global $wpdb;
-
-    // Clean any existing output buffer and start a new one.
-    ob_clean();
-    ob_start();
 
     // Get the article ID from the form and sanitize it.
     $article_id = intval($_POST['csv_article_id']);
@@ -65,30 +67,45 @@ function csv_export_articles() {
     // Execute the SQL query.
     $results = $wpdb->get_results($sql, ARRAY_A);
 
-    // Set the appropriate headers for CSV download.
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename=articles.csv');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+    $article_not_found = false;
 
-    // Open a file pointer connected to the output stream.
-    $output = fopen('php://output', 'w');
+    if ($article_id > 0 && empty($results)) {
+        $article_not_found = true;
+    } else {
+        // Start the CSV export process when the article is found.
+        if (!$article_not_found) {
+            // Clean any existing output buffer and start a new one.
+            ob_clean();
+            ob_start();
+		
+		// Set the appropriate headers for CSV download.
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename=articles.csv');
+        header('Pragma: no-cache');
+        header('Expires: 0');
 
-    // Output the header row.
-    fputcsv($output, array('Title', 'Content'));
+        // Open a file pointer connected to the output stream.
+        $output = fopen('php://output', 'w');
 
-    // Output the article data.
-    foreach ($results as $row) {
-        // Clean up the content before exporting.
-        $post_content = wp_strip_all_tags($row['post_content'], true);
-        $post_content = str_replace(array("\r\n", "\r", "\n"), ' ', $post_content);
-        $post_content = trim(preg_replace('/\s+/', ' ', $post_content));
+        // Output the header row.
+        fputcsv($output, array('Title', 'Content'));
 
-        fputcsv($output, array($row['post_title'], $post_content));
-    }
+        // Output the article data.
+        foreach ($results as $row) {
+            // Clean up the content before exporting.
+            $post_content = wp_strip_all_tags($row['post_content'], true);
+            $post_content = str_replace(array("\r\n", "\r", "\n"), ' ', $post_content);
+            $post_content = trim(preg_replace('/\s+/', ' ', $post_content));
 
-    // Close the file pointer, terminate the script to avoid any further output, and flush the output buffer.
-    fclose($output);
-    ob_end_flush();
-    die();
+            fputcsv($output, array($row['post_title'], $post_content));
+        }
+
+        // Close the file pointer, terminate the script to avoid any further output, and flush the output buffer.
+        fclose($output);
+        ob_end_flush();
+        die();
+    	}
+	}
+    // Return the $article_not_found value
+    return $article_not_found;
 }
