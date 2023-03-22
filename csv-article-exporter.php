@@ -2,7 +2,7 @@
 /*
 Plugin Name: CSV Article Exporter
 Description: Exports articles to CSV format.
-Version: 1.2
+Version: 1.3
 Author: Steve Krause
 */
 
@@ -58,7 +58,7 @@ function csv_export_articles() {
     $article_id = intval($_POST['csv_article_id']);
 
     // Prepare the SQL query.
-    $sql = "SELECT {$wpdb->posts}.ID, post_title, post_content, {$wpdb->users}.display_name as author FROM {$wpdb->posts} LEFT JOIN {$wpdb->users} ON {$wpdb->posts}.post_author = {$wpdb->users}.ID WHERE post_type = 'post' AND post_status = 'publish'";
+    $sql = "SELECT {$wpdb->posts}.ID, post_title, post_name as slug, post_content, {$wpdb->users}.display_name as author, {$wpdb->posts}.post_date as publish_date FROM {$wpdb->posts} LEFT JOIN {$wpdb->users} ON {$wpdb->posts}.post_author = {$wpdb->users}.ID WHERE post_type = 'post' AND post_status = 'publish'";
 
     if ($article_id > 0) {
         $sql .= $wpdb->prepare(" AND {$wpdb->posts}.ID = %d", $article_id);
@@ -87,18 +87,20 @@ function csv_export_articles() {
         // Open a file pointer connected to the output stream.
         $output = fopen('php://output', 'w');
 
-        // Output the header row.
-    	fputcsv($output, array('Title', 'Author', 'Content'));
+    // Output the header row.
+    fputcsv($output, array('Title', 'Author', 'Publish Date', 'Slug URL', 'Content'));
 
-    	// Output the article data.
-   		foreach ($results as $row) {
-			
+    // Output the article data.
+    foreach ($results as $row) {
         // Clean up the content before exporting.
         $post_content = wp_strip_all_tags($row['post_content'], true);
         $post_content = str_replace(array("\r\n", "\r", "\n"), ' ', $post_content);
         $post_content = trim(preg_replace('/\s+/', ' ', $post_content));
 
-        fputcsv($output, array($row['post_title'], $row['author'], $post_content));
+        // Generate the full slug URL.
+        $slug_url = get_permalink($row['ID']);
+
+        fputcsv($output, array($row['post_title'], $row['author'], $row['publish_date'], $slug_url, $post_content));
     }
 
         // Close the file pointer, terminate the script to avoid any further output, and flush the output buffer.
