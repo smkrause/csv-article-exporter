@@ -2,7 +2,7 @@
 /*
 Plugin Name: CSV Article Exporter
 Description: Exports articles to CSV format.
-Version: 1.3
+Version: 1.4
 Author: Steve Krause
 */
 
@@ -43,7 +43,7 @@ function csv_admin_page() {
                 </tr>
             </table>
             <?php if ($article_not_found) : ?>
-                <div style="color: red; margin-bottom: 10px;">Error: The specified article ID was not found.</div>
+                <div style="color: red; margin-bottom: 10px;"><?php echo esc_html__('Error: The specified article ID was not found.'); ?></div>
             <?php endif; ?>
             <?php submit_button('Export Articles', 'primary', 'csv_export'); ?>
         </form>
@@ -55,7 +55,7 @@ function csv_export_articles() {
     global $wpdb;
 
     // Get the article ID from the form and sanitize it.
-    $article_id = intval($_POST['csv_article_id']);
+    $article_id = absint($_POST['csv_article_id']);
 
     // Prepare the SQL query.
     $sql = "SELECT {$wpdb->posts}.ID, post_title, post_name as slug, post_content, {$wpdb->users}.display_name as author, {$wpdb->posts}.post_date as publish_date FROM {$wpdb->posts} LEFT JOIN {$wpdb->users} ON {$wpdb->posts}.post_author = {$wpdb->users}.ID WHERE post_type = 'post' AND post_status = 'publish'";
